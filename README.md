@@ -11,7 +11,7 @@ A powerful VSCode extension that helps you manage git ignored files with an intu
   - Uses `git update-index --skip-worktree` for tracked files
   - Uses `.git/info/exclude` for untracked files
 - **🖱️ Drag & Drop Interface**: Simply drag files into the ignore panel
-- **📝 Multiple Add Methods**: 
+- **📝 Multiple Add Methods**:
   - Drag and drop files from explorer
   - Right-click individual files
   - Batch add all changed files at once
