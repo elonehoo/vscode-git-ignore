@@ -1,0 +1,155 @@
+{
+  "publisher": "elonehoo",
+  "name": "vscode-git-ignore",
+  "displayName": "Git Ignore Helper",
+  "version": "0.0.1",
+  "private": true,
+  "packageManager": "pnpm@10.4.1",
+  "description": "A VSCode extension to manage git ignored files with drag and drop interface",
+  "author": "Elone Hoo <hi@elonehoo.me>",
+  "license": "MIT",
+  "homepage": "https://github.com/elonehoo/vscode-git-ignore#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/elonehoo/vscode-git-ignore"
+  },
+  "bugs": {
+    "url": "https://github.com/elonehoo/vscode-git-ignore/issues"
+  },
+  "categories": [
+    "SCM Providers"
+  ],
+  "main": "./dist/index.js",
+  "icon": "res/icon.png",
+  "files": [
+    "LICENSE.md",
+    "dist/*",
+    "res/*"
+  ],
+  "engines": {
+    "vscode": "^1.97.0"
+  },
+  "activationEvents": [
+    "onView:scm",
+    "onCommand:git.refresh"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "gitIgnoreHelper.addToIgnoreList",
+        "title": "Add to Ignore List",
+        "icon": "res/add-to-ignore.svg"
+      },
+      {
+        "command": "gitIgnoreHelper.addAllToIgnoreList",
+        "title": "Add All Changes to Ignore List",
+        "icon": "res/add-to-ignore.svg"
+      },
+      {
+        "command": "gitIgnoreHelper.removeFromIgnoreList",
+        "title": "Remove from Ignore List",
+        "icon": "res/remove-from-ignore.svg"
+      },
+      {
+        "command": "gitIgnoreHelper.clearIgnoreList",
+        "title": "Clear Ignore List",
+        "icon": "res/clear-all.svg"
+      }
+    ],
+    "views": {
+      "scm": [
+        {
+          "id": "gitIgnoreHelper",
+          "name": "Git Ignore Helper",
+          "when": "scmProvider == git",
+          "icon": "$(close)",
+          "visibility": "visible"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "gitIgnoreHelper.clearIgnoreList",
+          "when": "view == gitIgnoreHelper",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "gitIgnoreHelper.removeFromIgnoreList",
+          "when": "view == gitIgnoreHelper",
+          "group": "inline"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "gitIgnoreHelper.addToIgnoreList",
+          "when": "!explorerResourceIsFolder",
+          "group": "2_workspace",
+          "title": "Add to Git Ignore List"
+        }
+      ],
+      "scm/resourceGroup/context": [
+        {
+          "command": "gitIgnoreHelper.addAllToIgnoreList",
+          "group": "inline",
+          "title": "Add All Changes to Ignore List"
+        }
+      ],
+      "scm/resourceState/context": [
+        {
+          "command": "gitIgnoreHelper.addToIgnoreList",
+          "group": "inline",
+          "title": "Add to Ignore List"
+        }
+      ]
+    },
+    "configuration": {
+      "type": "object",
+      "title": "Git Ignore Helper",
+      "properties": {
+        "gitIgnoreHelper.autoSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically save ignore list changes"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "tsdown src/index.ts --external vscode",
+    "dev": "nr build --watch --sourcemap",
+    "prepare": "nr update",
+    "update": "vscode-ext-gen --output src/generated/meta.ts",
+    "lint": "eslint .",
+    "vscode:prepublish": "nr build",
+    "publish": "vsce publish --no-dependencies",
+    "pack": "vsce package --no-dependencies",
+    "test": "vitest",
+    "typecheck": "tsc --noEmit",
+    "release": "bumpp && nr publish"
+  },
+  "devDependencies": {
+    "@antfu/eslint-config": "^4.2.1",
+    "@antfu/ni": "^23.3.1",
+    "@types/node": "^22.13.4",
+    "@types/vscode": "^1.97.0",
+    "@vscode/vsce": "^3.2.2",
+    "bumpp": "^10.0.3",
+    "eslint": "^9.20.1",
+    "esno": "^4.8.0",
+    "pnpm": "^10.4.1",
+    "reactive-vscode": "^0.2.10",
+    "tsdown": "^0.9.6",
+    "typescript": "^5.7.3",
+    "vite": "^6.1.0",
+    "vitest": "^3.0.5",
+    "vscode-ext-gen": "^1.0.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  }
+}
