@@ -52,6 +52,16 @@ const { activate, deactivate } = defineExtension(() => {
       gitIgnoreProvider.refresh()
     }),
 
+    vscode.commands.registerCommand('gitIgnoreHelper.addAllModifiedToIgnoreList', async () => {
+      await gitIgnoreManager.addAllModifiedToIgnoreList()
+      gitIgnoreProvider.refresh()
+    }),
+
+    vscode.commands.registerCommand('gitIgnoreHelper.addAllUntrackedToIgnoreList', async () => {
+      await gitIgnoreManager.addAllUntrackedToIgnoreList()
+      gitIgnoreProvider.refresh()
+    }),
+
     vscode.commands.registerCommand('gitIgnoreHelper.removeFromIgnoreList', async (item: any) => {
       if (item?.resourceUri) {
         await gitIgnoreManager.removeFromIgnoreList(item.resourceUri.fsPath)

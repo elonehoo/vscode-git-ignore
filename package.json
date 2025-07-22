@@ -46,6 +46,16 @@
         "icon": "res/add-to-ignore.svg"
       },
       {
+        "command": "gitIgnoreHelper.addAllModifiedToIgnoreList",
+        "title": "Add All Modified to Ignore List",
+        "icon": "res/add-to-ignore.svg"
+      },
+      {
+        "command": "gitIgnoreHelper.addAllUntrackedToIgnoreList",
+        "title": "Add All Untracked to Ignore List",
+        "icon": "res/add-to-ignore.svg"
+      },
+      {
         "command": "gitIgnoreHelper.removeFromIgnoreList",
         "title": "Remove from Ignore List",
         "icon": "res/remove-from-ignore.svg"
@@ -92,9 +102,16 @@
       ],
       "scm/resourceGroup/context": [
         {
-          "command": "gitIgnoreHelper.addAllToIgnoreList",
+          "command": "gitIgnoreHelper.addAllModifiedToIgnoreList",
+          "when": "scmProvider == git && scmResourceGroup == workingTree",
           "group": "inline",
-          "title": "Add All Changes to Ignore List"
+          "title": "Add All to Ignore List"
+        },
+        {
+          "command": "gitIgnoreHelper.addAllUntrackedToIgnoreList",
+          "when": "scmProvider == git && scmResourceGroup == untracked",
+          "group": "inline",
+          "title": "Add All to Ignore List"
         }
       ],
       "scm/resourceState/context": [

@@ -134,6 +134,23 @@ export class GitIgnoreManager {
     }
   }
 
+  private async removeFromIndex(filePath: string): Promise<void> {
+    if (!this.workspaceRoot) {
+      return
+    }
+
+    try {
+      const relativePath = path.relative(this.workspaceRoot, filePath)
+      await execAsync(`git reset HEAD "${relativePath}"`, {
+        cwd: this.workspaceRoot,
+      })
+    }
+    catch (error) {
+      // Ignore error if file is not in index
+      vscode.window.showErrorMessage(`Failed to reset file from index: ${error}`)
+    }
+  }
+
   private async unskipWorktreeFile(filePath: string): Promise<void> {
     if (!this.workspaceRoot) {
       return
@@ -183,6 +200,77 @@ export class GitIgnoreManager {
     }
   }
 
+  private async getModifiedFiles(): Promise<string[]> {
+    if (!this.workspaceRoot) {
+      return []
+    }
+
+    try {
+      const { stdout } = await execAsync('git status --porcelain', {
+        cwd: this.workspaceRoot,
+      })
+
+      const modifiedFiles: string[] = []
+      const lines = stdout.split('\n').filter(line => line.trim())
+
+      for (const line of lines) {
+        if (line.length > 3) {
+          const status = line.substring(0, 2)
+          const filePath = line.substring(3).trim()
+          const cleanPath = filePath.replace(/^"(.*)"$/, '$1')
+
+          // Check if file is modified (tracked and changed)
+          // Status patterns for modified files:
+          // M = modified, D = deleted, R = renamed, C = copied
+          const isModified = status.match(/^[ MARC][MD]|^[ MARC] [MD]|^[MDARC]\?/)
+          if (isModified && !status.startsWith('??')) {
+            modifiedFiles.push(cleanPath)
+          }
+        }
+      }
+
+      return modifiedFiles
+    }
+    catch (error) {
+      console.error('Error getting modified files:', error)
+      return []
+    }
+  }
+
+  private async getUntrackedFiles(): Promise<string[]> {
+    if (!this.workspaceRoot) {
+      return []
+    }
+
+    try {
+      const { stdout } = await execAsync('git status --porcelain', {
+        cwd: this.workspaceRoot,
+      })
+
+      const untrackedFiles: string[] = []
+      const lines = stdout.split('\n').filter(line => line.trim())
+
+      for (const line of lines) {
+        if (line.length > 3) {
+          const status = line.substring(0, 2)
+          const filePath = line.substring(3).trim()
+          const cleanPath = filePath.replace(/^"(.*)"$/, '$1')
+
+          // Check if file is untracked (?? status)
+          if (status === '??') {
+            untrackedFiles.push(cleanPath)
+          }
+        }
+      }
+
+      return untrackedFiles
+    }
+    catch (error) {
+      console.error('Error getting untracked files:', error)
+      return []
+    }
+  }
+
   async addAllChangesToIgnoreList() {
     if (!this.workspaceRoot) {
       vscode.window.showErrorMessage('No workspace folder found')
@@ -193,19 +281,14 @@ export class GitIgnoreManager {
       const changedFiles = await this.getAllChangedFiles()
 
       if (changedFiles.length === 0) {
-        vscode.window.showInformationMessage('No changed files found')
         return
       }
-
-      let addedCount = 0
-      let skippedCount = 0
 
       for (const relativePath of changedFiles) {
         const fullPath = path.join(this.workspaceRoot, relativePath)
 
         // Skip if already ignored
         if (this.ignoredFiles.has(relativePath)) {
-          skippedCount++
           continue
         }
 
@@ -216,24 +299,96 @@ export class GitIgnoreManager {
         if (isTracked) {
           await this.skipWorktreeFile(fullPath)
         }
-
-        addedCount++
+        else {
+          // For untracked files, ensure they're not in the index
+          await this.removeFromIndex(fullPath)
+        }
       }
 
       await this.saveIgnoredFiles()
 
       // Refresh SCM to update the UI
       vscode.commands.executeCommand('git.refresh')
-
-      let message = `Added ${addedCount} file(s) to ignore list`
-      if (skippedCount > 0) {
-        message += ` (skipped ${skippedCount} already ignored)`
-      }
-      vscode.window.showInformationMessage(message)
     }
     catch (error) {
       console.error('Error adding all changes to ignore list:', error)
       vscode.window.showErrorMessage(`Failed to add all changes to ignore list: ${error}`)
+    }
+  }
+
+  async addAllModifiedToIgnoreList() {
+    if (!this.workspaceRoot) {
+      vscode.window.showErrorMessage('No workspace folder found')
+      return
+    }
+
+    try {
+      const modifiedFiles = await this.getModifiedFiles()
+
+      if (modifiedFiles.length === 0) {
+        return
+      }
+
+      for (const relativePath of modifiedFiles) {
+        const fullPath = path.join(this.workspaceRoot, relativePath)
+
+        // Skip if already ignored
+        if (this.ignoredFiles.has(relativePath)) {
+          continue
+        }
+
+        this.ignoredFiles.add(relativePath)
+
+        // Modified files are tracked, apply skip-worktree
+        await this.skipWorktreeFile(fullPath)
+      }
+
+      await this.saveIgnoredFiles()
+
+      // Refresh SCM to update the UI
+      vscode.commands.executeCommand('git.refresh')
+    }
+    catch (error) {
+      console.error('Error adding modified files to ignore list:', error)
+      vscode.window.showErrorMessage(`Failed to add modified files to ignore list: ${error}`)
+    }
+  }
+
+  async addAllUntrackedToIgnoreList() {
+    if (!this.workspaceRoot) {
+      vscode.window.showErrorMessage('No workspace folder found')
+      return
+    }
+
+    try {
+      const untrackedFiles = await this.getUntrackedFiles()
+
+      if (untrackedFiles.length === 0) {
+        return
+      }
+
+      for (const relativePath of untrackedFiles) {
+        const fullPath = path.join(this.workspaceRoot, relativePath)
+
+        // Skip if already ignored
+        if (this.ignoredFiles.has(relativePath)) {
+          continue
+        }
+
+        this.ignoredFiles.add(relativePath)
+
+        // Untracked files are not tracked, ensure they're not in the index
+        await this.removeFromIndex(fullPath)
+      }
+
+      await this.saveIgnoredFiles()
+
+      // Refresh SCM to update the UI
+      vscode.commands.executeCommand('git.refresh')
+    }
+    catch (error) {
+      console.error('Error adding untracked files to ignore list:', error)
+      vscode.window.showErrorMessage(`Failed to add untracked files to ignore list: ${error}`)
     }
   }
 
@@ -254,11 +409,10 @@ export class GitIgnoreManager {
       if (isTracked) {
         // For tracked files, use skip-worktree to ignore local changes
         await this.skipWorktreeFile(filePath)
-        vscode.window.showInformationMessage(`Added ${path.basename(filePath)} to ignore list (using skip-worktree)`)
       }
       else {
-        // For untracked files, just add to exclude
-        vscode.window.showInformationMessage(`Added ${path.basename(filePath)} to ignore list`)
+        // For untracked files, ensure they're not in the index
+        await this.removeFromIndex(filePath)
       }
 
       await this.saveIgnoredFiles()
@@ -285,10 +439,6 @@ export class GitIgnoreManager {
       const isTracked = await this.isFileTrackedByGit(filePath)
       if (isTracked) {
         await this.unskipWorktreeFile(filePath)
-        vscode.window.showInformationMessage(`Removed ${path.basename(filePath)} from ignore list (restored skip-worktree)`)
-      }
-      else {
-        vscode.window.showInformationMessage(`Removed ${path.basename(filePath)} from ignore list`)
       }
 
       await this.saveIgnoredFiles()
@@ -322,8 +472,6 @@ export class GitIgnoreManager {
 
       // Refresh SCM to update the UI
       vscode.commands.executeCommand('git.refresh')
-
-      vscode.window.showInformationMessage('Cleared ignore list')
     }
     catch (error) {
       console.error('Error clearing ignore list:', error)
