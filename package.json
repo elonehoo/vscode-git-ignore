@@ -2,7 +2,7 @@
   "publisher": "elonehoo",
   "name": "vscode-git-ignore",
   "displayName": "Git Ignore Helper",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "private": true,
   "packageManager": "pnpm@10.4.1",
   "description": "A VSCode extension to manage git ignored files with drag and drop interface",
