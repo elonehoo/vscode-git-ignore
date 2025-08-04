@@ -97,14 +97,23 @@ export class GitIgnoreItem extends vscode.TreeItem {
       this.resourceUri = vscode.Uri.file(path.join(workspaceRoot, filePath))
     }
 
-    // Set appropriate icon
-    this.iconPath = new vscode.ThemeIcon('file')
+    // Set appropriate icon based on whether it's a directory or file
+    if (filePath.endsWith('/')) {
+      // Directory pattern
+      this.iconPath = new vscode.ThemeIcon('folder')
+    }
+    else {
+      // File pattern
+      this.iconPath = new vscode.ThemeIcon('file')
+    }
 
-    // Add command to open file when clicked
-    this.command = {
-      command: 'vscode.open',
-      title: 'Open File',
-      arguments: [this.resourceUri],
+    // Add command to open file when clicked (only for files, not directories)
+    if (!filePath.endsWith('/')) {
+      this.command = {
+        command: 'vscode.open',
+        title: 'Open File',
+        arguments: [this.resourceUri],
+      }
     }
   }
 }

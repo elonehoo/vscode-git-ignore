@@ -99,6 +99,16 @@ export class GitIgnoreManager {
     }
   }
 
+  private async isDirectory(filePath: string): Promise<boolean> {
+    try {
+      const stats = await fs.promises.stat(filePath)
+      return stats.isDirectory()
+    }
+    catch {
+      return false
+    }
+  }
+
   private async isFileTrackedByGit(filePath: string): Promise<boolean> {
     if (!this.workspaceRoot) {
       return false
@@ -392,6 +402,35 @@ export class GitIgnoreManager {
     }
   }
 
+  private async handleDirectoryIgnore(dirPath: string): Promise<void> {
+    if (!this.workspaceRoot) {
+      return
+    }
+
+    try {
+      const relativePath = path.relative(this.workspaceRoot, dirPath)
+
+      // Get all tracked files in this directory using git ls-files
+      const { stdout } = await execAsync(`git ls-files "${relativePath}/*"`, {
+        cwd: this.workspaceRoot,
+      })
+
+      const trackedFiles = stdout.trim().split('\n').filter(file => file.trim())
+
+      // Apply skip-worktree to all tracked files in the directory
+      for (const trackedFile of trackedFiles) {
+        if (trackedFile.trim()) {
+          const fullPath = path.join(this.workspaceRoot, trackedFile)
+          await this.skipWorktreeFile(fullPath)
+        }
+      }
+    }
+    catch (error) {
+      // If no tracked files found, that's okay for new directories
+      console.error('No tracked files found in directory or error occurred:', error)
+    }
+  }
+
   async addToIgnoreList(filePath: string) {
     if (!this.workspaceRoot) {
       vscode.window.showErrorMessage('No workspace folder found')
@@ -401,18 +440,29 @@ export class GitIgnoreManager {
     try {
       // Convert to relative path
       const relativePath = path.relative(this.workspaceRoot, filePath)
-      this.ignoredFiles.add(relativePath)
 
-      // Check if file is already tracked by Git
-      const isTracked = await this.isFileTrackedByGit(filePath)
+      // Check if it's a directory
+      const isDir = await this.isDirectory(filePath)
+      const ignorePattern = isDir ? `${relativePath}/` : relativePath
 
-      if (isTracked) {
-        // For tracked files, use skip-worktree to ignore local changes
-        await this.skipWorktreeFile(filePath)
+      this.ignoredFiles.add(ignorePattern)
+
+      if (isDir) {
+        // For directories, we need to handle all files within the directory
+        await this.handleDirectoryIgnore(filePath)
       }
       else {
-        // For untracked files, ensure they're not in the index
-        await this.removeFromIndex(filePath)
+        // Check if file is already tracked by Git
+        const isTracked = await this.isFileTrackedByGit(filePath)
+
+        if (isTracked) {
+          // For tracked files, use skip-worktree to ignore local changes
+          await this.skipWorktreeFile(filePath)
+        }
+        else {
+          // For untracked files, ensure they're not in the index
+          await this.removeFromIndex(filePath)
+        }
       }
 
       await this.saveIgnoredFiles()
@@ -426,6 +476,35 @@ export class GitIgnoreManager {
     }
   }
 
+  private async handleDirectoryUnignore(dirPath: string): Promise<void> {
+    if (!this.workspaceRoot) {
+      return
+    }
+
+    try {
+      const relativePath = path.relative(this.workspaceRoot, dirPath)
+
+      // Get all tracked files in this directory using git ls-files
+      const { stdout } = await execAsync(`git ls-files "${relativePath}/*"`, {
+        cwd: this.workspaceRoot,
+      })
+
+      const trackedFiles = stdout.trim().split('\n').filter(file => file.trim())
+
+      // Remove skip-worktree from all tracked files in the directory
+      for (const trackedFile of trackedFiles) {
+        if (trackedFile.trim()) {
+          const fullPath = path.join(this.workspaceRoot, trackedFile)
+          await this.unskipWorktreeFile(fullPath)
+        }
+      }
+    }
+    catch (error) {
+      // If no tracked files found, that's okay
+      console.error('No tracked files found in directory or error occurred:', error)
+    }
+  }
+
   async removeFromIgnoreList(filePath: string) {
     if (!this.workspaceRoot) {
       return
@@ -433,12 +512,21 @@ export class GitIgnoreManager {
 
     try {
       const relativePath = path.relative(this.workspaceRoot, filePath)
-      this.ignoredFiles.delete(relativePath)
+      const isDir = await this.isDirectory(filePath)
+      const ignorePattern = isDir ? `${relativePath}/` : relativePath
 
-      // Check if file was tracked and remove skip-worktree
-      const isTracked = await this.isFileTrackedByGit(filePath)
-      if (isTracked) {
-        await this.unskipWorktreeFile(filePath)
+      this.ignoredFiles.delete(ignorePattern)
+
+      if (isDir) {
+        // For directories, handle all tracked files within
+        await this.handleDirectoryUnignore(filePath)
+      }
+      else {
+        // Check if file was tracked and remove skip-worktree
+        const isTracked = await this.isFileTrackedByGit(filePath)
+        if (isTracked) {
+          await this.unskipWorktreeFile(filePath)
+        }
       }
 
       await this.saveIgnoredFiles()
@@ -489,7 +577,23 @@ export class GitIgnoreManager {
     }
 
     const relativePath = path.relative(this.workspaceRoot, filePath)
-    return this.ignoredFiles.has(relativePath)
+
+    // Check if exact match (for files or directories with trailing slash)
+    if (this.ignoredFiles.has(relativePath) || this.ignoredFiles.has(`${relativePath}/`)) {
+      return true
+    }
+
+    // Check if file is within an ignored directory
+    for (const ignoredPattern of this.ignoredFiles) {
+      if (ignoredPattern.endsWith('/')) {
+        const dirPattern = ignoredPattern.slice(0, -1) // Remove trailing slash
+        if (relativePath.startsWith(`${dirPattern}/`)) {
+          return true
+        }
+      }
+    }
+
+    return false
   }
 
   dispose() {

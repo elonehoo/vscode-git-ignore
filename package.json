@@ -95,7 +95,6 @@
       "explorer/context": [
         {
           "command": "gitIgnoreHelper.addToIgnoreList",
-          "when": "!explorerResourceIsFolder",
           "group": "2_workspace",
           "title": "Add to Git Ignore List"
         }
@@ -118,7 +117,9 @@
         {
           "command": "gitIgnoreHelper.addToIgnoreList",
           "group": "inline",
-          "title": "Add to Ignore List"
+          "title": "Add to Ignore List",
+          "when": "scmProvider == git",
+          "icon": "res/add-to-ignore.svg"
         }
       ]
     },
